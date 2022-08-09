@@ -21,6 +21,7 @@ export const slugFieldData = ref('')
 export const isNewEntry = computed<boolean>(
   () => Object.entries(entry.value?._data || {}).length === 0
 )
+export const initialUrl = ref('')
 
 export async function refreshSlug() {
   const { url, slug } = await generateSlugAndUrl(
@@ -38,7 +39,12 @@ export async function generateSlugAndUrl(_entry: Entry, _parent?: Entry) {
   return { slug, url }
 }
 
-export async function updateChildrenOf(_entry: Entry) {
+export function updateChildrenOfEntryIfUrlHasChanged(_entry: Entry) {
+  if (initialUrl.value === _entry.url) return
+  updateChildrenOfEntry(_entry)
+}
+
+export async function updateChildrenOfEntry(_entry: Entry) {
   if (!isNewEntry.value) {
     const children = await getChildren(_entry)
 
@@ -55,7 +61,7 @@ export async function updateChildrenOf(_entry: Entry) {
           },
         })
 
-      await updateChildrenOf(updatedChild)
+      await updateChildrenOfEntry(updatedChild)
     }
   }
 }
@@ -67,7 +73,6 @@ export const getParent = async (entry: Entry): Promise<Entry | null> => {
   const { entry: parent } = await stack.value
     ?.ContentType(_parent._content_type_uid)
     .Entry(_parent.uid)
-    //   .only("title")
     .fetch()
 
   return parent

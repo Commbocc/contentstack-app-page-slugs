@@ -5,8 +5,9 @@ import {
   state,
   slugFieldData,
   entry,
+  initialUrl,
   refreshSlug,
-  updateChildrenOf,
+  updateChildrenOfEntryIfUrlHasChanged,
   isNewEntry,
 } from './lib'
 
@@ -28,10 +29,11 @@ ContentstackAppSdk.init().then(async (appSdk) => {
   appSdk.location.CustomField?.frame?.enableAutoResizing()
 
   slugFieldData.value = appSdk.location?.CustomField?.field?.getData()
+  initialUrl.value = entry.value?._data?.url
 
   // events
-  entry.value?.onSave(updateChildrenOf)
-  entry.value?.onPublish(updateChildrenOf)
+  entry.value?.onSave(updateChildrenOfEntryIfUrlHasChanged)
+  entry.value?.onPublish(updateChildrenOfEntryIfUrlHasChanged)
 
   //
   state.loading = false
