@@ -1,4 +1,4 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, unref, watch } from 'vue'
 import { slugify } from '../util'
 import type Extension from '@contentstack/app-sdk/dist/src/extension'
 
@@ -22,6 +22,16 @@ export const isNewEntry = computed<boolean>(
   () => Object.entries(entry.value?._data || {}).length === 0
 )
 export const initialUrl = ref('')
+export const openDescendentTree = ref(false)
+export const acknowledgeDanger = ref(false)
+
+export const children = reactive<{
+  loading: boolean
+  data: Entry[]
+}>({
+  loading: true,
+  data: [],
+})
 
 export async function refreshSlug() {
   const { url, slug } = await generateSlugAndUrl(
@@ -39,35 +49,8 @@ export async function generateSlugAndUrl(_entry: Entry, _parent?: Entry) {
   return { slug, url }
 }
 
-export function updateChildrenOfEntryIfUrlHasChanged(_entry: Entry) {
-  if (initialUrl.value === _entry.url) return
-  updateChildrenOfEntry(_entry)
-}
-
-export async function updateChildrenOfEntry(_entry: Entry) {
-  if (!isNewEntry.value) {
-    const children = await getChildren(_entry)
-
-    for (const child of children) {
-      const { url, slug } = await generateSlugAndUrl(child, _entry)
-
-      const { entry: updatedChild } = await stack.value
-        ?.ContentType('page')
-        .Entry(child.uid)
-        .update({
-          entry: {
-            slug,
-            url,
-          },
-        })
-
-      await updateChildrenOfEntry(updatedChild)
-    }
-  }
-}
-
-export const getParent = async (entry: Entry): Promise<Entry | null> => {
-  const [_parent] = entry.parent?.page || []
+export const getParent = async (_entry: Entry): Promise<Entry | null> => {
+  const [_parent] = _entry.parent?.page || []
   if (!_parent) return null
 
   const { entry: parent } = await stack.value
@@ -78,11 +61,9 @@ export const getParent = async (entry: Entry): Promise<Entry | null> => {
   return parent
 }
 
-export const getChildren = async (entry: Entry): Promise<Entry[]> => {
-  const { entries } = await stack.value
-    ?.ContentType('page')
-    .Entry.Query()
-    .where('parent.page.uid', entry.uid)
-    .find()
-  return entries || []
-}
+watch(
+  () => slugFieldData.value,
+  async () => {
+    await state.location?.CustomField?.field?.setData(unref(slugFieldData))
+  }
+)
