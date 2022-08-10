@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { unref, watch } from 'vue'
 import ContentstackAppSdk from '@contentstack/app-sdk'
 import {
   state,
@@ -7,16 +6,14 @@ import {
   entry,
   initialUrl,
   refreshSlug,
-  updateChildrenOfEntryIfUrlHasChanged,
   isNewEntry,
+  openDescendentTree,
+  acknowledgeDanger,
 } from './lib'
+import Child from './components/Child.vue'
+import { useChildren } from './composables/children'
 
-watch(
-  () => slugFieldData.value,
-  async () => {
-    await state.location?.CustomField?.field?.setData(unref(slugFieldData))
-  }
-)
+const { fetchChildrenOf, children } = useChildren()
 
 ContentstackAppSdk.init().then(async (appSdk) => {
   const config = await appSdk?.getConfig()
@@ -31,9 +28,11 @@ ContentstackAppSdk.init().then(async (appSdk) => {
   slugFieldData.value = appSdk.location?.CustomField?.field?.getData()
   initialUrl.value = entry.value?._data?.url
 
+  await fetchChildrenOf(entry.value._data)
+
   // events
-  entry.value?.onSave(updateChildrenOfEntryIfUrlHasChanged)
-  entry.value?.onPublish(updateChildrenOfEntryIfUrlHasChanged)
+  entry.value?.onSave(() => fetchChildrenOf(entry.value._data))
+  entry.value?.onPublish(() => fetchChildrenOf(entry.value._data))
 
   //
   state.loading = false
@@ -52,7 +51,8 @@ ContentstackAppSdk.init().then(async (appSdk) => {
       You must save this entry before generating a slug.
     </div>
 
-    <div v-else class="d-flex gap-1">
+    <div v-else class="">
+      <!-- input group -->
       <div class="input-group mb-3">
         <input
           type="text"
@@ -87,6 +87,54 @@ ContentstackAppSdk.init().then(async (appSdk) => {
           </svg>
         </button>
       </div>
+
+      <!-- child tree -->
+      <details :open="openDescendentTree" class="card">
+        <summary class="card-header">Descendent Tree</summary>
+
+        <!--  -->
+        <div
+          class="card-body p-0 bg-warning d-flex justify-content-between align-items-center"
+        >
+          <div class="form-check small text-dark m-1">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="acknowledgeDanger"
+              v-model="acknowledgeDanger"
+            />
+            <label class="form-check-label" for="acknowledgeDanger">
+              Acknowledge Danger
+            </label>
+          </div>
+
+          <button
+            class="btn btn-light btn-sm"
+            style="--bs-btn-border-radius: 0"
+            @click="fetchChildrenOf(entry._data)"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <!--  -->
+        <div class="card-body">
+          <div v-if="children.loading" class="d-flex justify-content-center">
+            <div class="spinner-border spinner-border-sm" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+
+          <ul v-else class="small mb-0">
+            <Child
+              v-for="child in children.data"
+              :child="child"
+              :parent="entry._data"
+              @url-updated="fetchChildrenOf(entry._data)"
+            />
+          </ul>
+        </div>
+      </details>
     </div>
   </main>
 </template>
